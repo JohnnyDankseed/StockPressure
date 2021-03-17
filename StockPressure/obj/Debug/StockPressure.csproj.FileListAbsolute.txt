@@ -1,0 +1,10 @@
+C:\Users\jhane\Box Sync\StockPressure 2\StockPressure\StockPressure\bin\Debug\GetShares.exe.config
+C:\Users\jhane\Box Sync\StockPressure 2\StockPressure\StockPressure\bin\Debug\GetShares.exe
+C:\Users\jhane\Box Sync\StockPressure 2\StockPressure\StockPressure\bin\Debug\GetShares.pdb
+C:\Users\jhane\Box Sync\StockPressure 2\StockPressure\StockPressure\bin\Debug\Newtonsoft.Json.dll
+C:\Users\jhane\Box Sync\StockPressure 2\StockPressure\StockPressure\bin\Debug\Newtonsoft.Json.xml
+C:\Users\jhane\Box Sync\StockPressure 2\StockPressure\StockPressure\obj\Debug\StockPressure.csprojAssemblyReference.cache
+C:\Users\jhane\Box Sync\StockPressure 2\StockPressure\StockPressure\obj\Debug\StockPressure.csproj.CoreCompileInputs.cache
+C:\Users\jhane\Box Sync\StockPressure 2\StockPressure\StockPressure\obj\Debug\StockPressure.csproj.CopyComplete
+C:\Users\jhane\Box Sync\StockPressure 2\StockPressure\StockPressure\obj\Debug\GetShares.exe
+C:\Users\jhane\Box Sync\StockPressure 2\StockPressure\StockPressure\obj\Debug\GetShares.pdb

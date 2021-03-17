@@ -48,7 +48,7 @@ namespace GetShares
                 }
 
                 Int64 sharesHeldByInsiders = (Int64)(
-                    yfData.defaultKeyStatistics.sharesOutstanding.value * 
+                    yfData.defaultKeyStatistics.sharesOutstanding.value *
                     yfData.defaultKeyStatistics.heldPercentInsiders.value
                 );
 
@@ -76,8 +76,8 @@ namespace GetShares
                 if (yfData.defaultKeyStatistics.sharesOutstanding.value > 0)
                 {
                     GetShortDataSinceDate(
-                        yfData.defaultKeyStatistics.sharesShortPriorMonth.value, 
-                        yfData.defaultKeyStatistics.sharesShortPreviousMonthDate.value, 
+                        yfData.defaultKeyStatistics.sharesShortPriorMonth.value,
+                        yfData.defaultKeyStatistics.sharesShortPreviousMonthDate.value,
                         symbol,
                         yfData.defaultKeyStatistics.sharesOutstanding.value - sharesHeldByInsiders
                     );
@@ -104,10 +104,10 @@ namespace GetShares
                     Method = HttpMethod.Get,
                     RequestUri = new Uri($"https://{apiHost}/stock/v2/get-statistics?symbol={symbol}&region=US"),
                     Headers =
-                {
-                    { "x-rapidapi-key", apiKey },
-                    { "x-rapidapi-host", apiHost },
-                },
+                    {
+                        { "x-rapidapi-key", apiKey },
+                        { "x-rapidapi-host", apiHost },
+                    },
                 };
 
                 using (var response = client.SendAsync(request).Result)
@@ -161,7 +161,7 @@ namespace GetShares
             }
             Console.WriteLine("");
 
-            bool todaysFile = AppConfig.CheckForToday ? 
+            bool todaysFile = AppConfig.CheckForToday ?
                     GetFileDataForDate(DateTime.Now.Date, symbol) != null :
                     true;
 
@@ -197,13 +197,15 @@ namespace GetShares
                         // If they've already possibly cleared their position, set it to 0.
                         if (cumulativeShort < 0) { cumulativeShort = 0; }
 
-                        // It really skyrockets when the squeeze is above 50% of all outstanding shares. Anything under this percentage, 
-                        // and hedge funds are likely to wiggle out before a squeeze can take effect.
-                        decimal osp = 50.0M;
+                        // It really skyrockets when the squeeze is above 50% of all outstanding shares. Anything under your pressureLine percentage, 
+                        // and hedge funds are likely to wiggle out before a squeeze can take effect so we don't want those to pop up as potentials.
+                        // Supress those numbers down by subtracting your Pressure Level from the percentage calculated. (Works much like a "squelch dial"
+                        // on a radio.)
+                        decimal osp = AppConfig.PressureLine;
                         decimal shortPercent = Math.Round((decimal)cumulativeShort / (decimal)sharesOutstanding, decimals);
                         // The Squeeze Factor is the cumulative short percent (integer form) MINUS the outstanding share percent wiggle room defined above.
                         decimal squeezeFactor = (shortPercent * 100.0M) - osp;
-                        // If that is not above 50*, then leave it simply the assumed short percentage in decimal form.
+                        // If that is not above X%, then leave it simply the assumed short percentage in decimal form.
                         if (squeezeFactor < 0) squeezeFactor = shortPercent;
 
                         string incdec = " ";
@@ -211,10 +213,11 @@ namespace GetShares
                         if (squeezeFactor < prevSqueezeFactor) incdec = "-";
                         prevSqueezeFactor = squeezeFactor;
 
-                        // SO.... shorted cumulative from 0-50% will be a Squeeze factor from 0.0 to 0.9999. At 50% and up, it starts climbing. 
-                        // A Squeeze Factor of 50 would then imply that 100% of the available float MAY have been accounted for. Since we don't
-                        // really know for sure, we don't want to state that the Shorted Float is 100%!! It may not be. But what we DO know is 
-                        // that the Hedge funds should be feeling quite a bit of pressure, which could drive the price up.
+                        // SO.... shorted cumulative from 0-X% will be a Squeeze factor from 0.0 to 0.9999. At X% and up, it starts climbing normally. 
+                        // A Squeeze Factor with a pressure line of 40 and a SCORE of 60 would then imply that 100% of the available float 
+                        // MAY have been accounted for (100% - 40 = 60). Since we don't really know for sure, we don't want to state that the 
+                        // Shorted Float is exactly 100%!! It may not be. But what we DO know is that at this level the Hedge funds should be 
+                        // feeling quite a bit of pressure, which could drive the price up. And that's what we're trying to find. PRESSURE.
 
                         Console.Write($"| {curr.ToString("yyyy-MM-dd")} | {squeezeFactor:0.000} | {incdec} ");
                         if (AppConfig.ShowVolumes)
@@ -266,7 +269,8 @@ namespace GetShares
                         }
                     }
                 }
-            } catch (Exception ex)
+            }
+            catch (Exception ex)
             {
             }
 
