@@ -19,6 +19,8 @@ namespace GetShares
         static void Main(string[] args)
         {
             string symbol = "GME";
+            int pressureLine = (int)AppConfig.PressureLine;
+            bool showVolumes = AppConfig.ShowVolumes;
 
             if (AppConfig.ApiKey == null || AppConfig.ApiHost == null)
             {
@@ -37,6 +39,12 @@ namespace GetShares
             {
                 Console.Write($"Symbol ({symbol}): ");
                 symbol = GetString(symbol);
+
+                Console.Write($"At what percent do you think the short-ers will be stuck? ({pressureLine}) : ");
+                pressureLine = int.Parse(GetString(pressureLine.ToString()));
+
+                Console.Write($"Show underlying volumes? ({showVolumes}) : ");
+                showVolumes = bool.Parse(GetString(showVolumes.ToString()));
                 Console.WriteLine("------------------------------------------------------------------------------");
 
                 YahooFinanceStatistics yfData = GetYahooFinanceForSymbol(symbol);
@@ -79,7 +87,9 @@ namespace GetShares
                         yfData.defaultKeyStatistics.sharesShortPriorMonth.value,
                         yfData.defaultKeyStatistics.sharesShortPreviousMonthDate.value,
                         symbol,
-                        yfData.defaultKeyStatistics.sharesOutstanding.value - sharesHeldByInsiders
+                        yfData.defaultKeyStatistics.sharesOutstanding.value - sharesHeldByInsiders,
+                        pressureLine,
+                        showVolumes
                     );
                 }
 
@@ -131,7 +141,7 @@ namespace GetShares
             return tmpStr;
         }
 
-        private static void GetShortDataSinceDate(Int64 startingShort, DateTime startingDate, string symbol, Int64 sharesOutstanding)
+        private static void GetShortDataSinceDate(Int64 startingShort, DateTime startingDate, string symbol, Int64 sharesOutstanding, int pressureLine, bool showVolumes)
         {
             Int64 cumulativeShort = startingShort;
 
@@ -145,17 +155,20 @@ namespace GetShares
                 "This is a stat I'm calling Squeeze Factor, where the math on even the REPORTED numbers shows that it is " +
                 "very likely over-shorted, and a wild stab at quantifying HOW MUCH it is over-shorted." +
                 "\r\n\r\n " +
-                "***Keep an eye on the second column, SqF.*** That's the key factor here. The bigger that number gets, the better " +
+                "***Keep an eye on the second column, Pressure #.*** That's the key factor here. The bigger that number gets, the better " +
                 "off our position becomes.");
             Console.WriteLine("");
 
             // Create Markdown Table            
-            Console.Write("| Date  | Squeeze Factor (SqF) | Pressure |");
-            if (AppConfig.ShowVolumes) { Console.Write(" Volume | Short Volume | Daily guess at short volume change |"); }
+            Console.Write("| Date  | Pressure # | Pressure Change |");
+            if (showVolumes)
+            {
+                Console.Write(" Volume | Short Volume | Potential Short % (stab in the dark) |");
+            }
             Console.WriteLine("");
 
             Console.Write("|:--:| --:|:--:|");
-            if (AppConfig.ShowVolumes)
+            if (showVolumes)
             {
                 Console.Write("--:| --:| --:|");
             }
@@ -167,7 +180,6 @@ namespace GetShares
 
             if (todaysFile)
             {
-                decimal pct = 0;
                 decimal prevSqueezeFactor = 0;
                 int decimals = 5;
 
@@ -184,45 +196,43 @@ namespace GetShares
                     // that ALL non-short volumes go to cover the short volumes.
                     if (data != null && sharesOutstanding != 0)
                     {
-                        cumulativeShort = cumulativeShort + (2 * data.ShortVolume) - data.TotalVolume;
 
-                        Int64 newShorts = cumulativeShort - startingShort;
+                        // If I look at ALL possible trades (that we know of) as having the POTENTIAL to cover shorts, then
+                        // the potential short coverage for the day is TotalVolume - (ShortVolume * 2). This is *2, because the first
+                        // piece of volume was to transact the "short". The second one is to "cover" the short. The pressure is then
+                        // the difference of what remains of that equation. If we have ANY positive volume left over, it could cover 
+                        // previous shorts, decreasing the value. If negative, it INCREASES previous shorts, then we start this all 
+                        // over again the next day.
+                        // 
+                        // That makes the equation something like:
+                        //     cumulative shorts = cumulative shorts - (Sales Today - (Shorts Today * 2)).
 
-                        // How does this cumulative Shortage compare to the previous shortage (by percent)
-                        if (cumulativeShort != 0)
-                        {
-                            pct = ((decimal)newShorts / (decimal)startingShort) * 100m;
-                        }
+                        Int64 coveredShorts = data.TotalVolume - (data.ShortVolume * 2);
+                        cumulativeShort = cumulativeShort - coveredShorts;
 
-                        // If they've already possibly cleared their position, set it to 0.
+                        // If they've already potentially cleared their position, set it to 0. We're done. There is no squeeze for
+                        // this day.
                         if (cumulativeShort < 0) { cumulativeShort = 0; }
 
-                        // It really skyrockets when the squeeze is above 50% of all outstanding shares. Anything under your pressureLine percentage, 
-                        // and hedge funds are likely to wiggle out before a squeeze can take effect so we don't want those to pop up as potentials.
-                        // Supress those numbers down by subtracting your Pressure Level from the percentage calculated. (Works much like a "squelch dial"
-                        // on a radio.)
-                        decimal osp = AppConfig.PressureLine;
+                        // How does this cumulative Shortage compare to the shares outstanding (by percent).
+                        // This is the POTENTIAL Short Percent. This is NOT the actual Short Percent.
                         decimal shortPercent = Math.Round((decimal)cumulativeShort / (decimal)sharesOutstanding, decimals);
-                        // The Squeeze Factor is the cumulative short percent (integer form) MINUS the outstanding share percent wiggle room defined above.
-                        decimal squeezeFactor = (shortPercent * 100.0M) - osp;
-                        // If that is not above X%, then leave it simply the assumed short percentage in decimal form.
-                        if (squeezeFactor < 0) squeezeFactor = shortPercent;
+
+                        // We need shortPercent and pressureLine to be in the same units, so we divide pressure by 100. 
+                        decimal squeezeFactor = shortPercent / (pressureLine / 100m);
 
                         string incdec = " ";
                         if (squeezeFactor > prevSqueezeFactor) incdec = "+";
                         if (squeezeFactor < prevSqueezeFactor) incdec = "-";
                         prevSqueezeFactor = squeezeFactor;
 
-                        // SO.... shorted cumulative from 0-X% will be a Squeeze factor from 0.0 to 0.9999. At X% and up, it starts climbing normally. 
-                        // A Squeeze Factor with a pressure line of 40 and a SCORE of 60 would then imply that 100% of the available float 
-                        // MAY have been accounted for (100% - 40 = 60). Since we don't really know for sure, we don't want to state that the 
-                        // Shorted Float is exactly 100%!! It may not be. But what we DO know is that at this level the Hedge funds should be 
-                        // feeling quite a bit of pressure, which could drive the price up. And that's what we're trying to find. PRESSURE.
-
-                        Console.Write($"| {curr.ToString("yyyy-MM-dd")} | {squeezeFactor:0.000} | {incdec} ");
-                        if (AppConfig.ShowVolumes)
+                        // At this point, the squeeze factor is just a number. It should not be mentally coupled with the squeeze percent since we don't
+                        // know what that true number is. But what we DO know is that at this level the Hedge funds should be feeling quite a bit of 
+                        // pressure, which could drive the price up. And that's what we're trying to find. Potential PRESSURE to facilitate a squeeze.
+                        Console.Write($"| {curr.ToString("yyyy-MM-dd")} | {(squeezeFactor * 100m):0.0} | {incdec} ");
+                        if (showVolumes)
                         {
-                            Console.Write($"| {data.TotalVolume.ToString("###,###,###,##0")} | {data.ShortVolume.ToString("###,###,###,##0")} | {pct:0.0000} % |");
+                            Console.Write($"| {data.TotalVolume.ToString("###,###,###,##0")} | {data.ShortVolume.ToString("###,###,###,##0")} | {shortPercent * 100:0.0000} % |");
                         }
                         Console.WriteLine("");
                     }
