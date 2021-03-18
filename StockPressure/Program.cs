@@ -18,6 +18,7 @@ namespace GetShares
     {
         static void Main(string[] args)
         {
+            Console.SetWindowSize(100, Console.WindowHeight);
             string symbol = "GME";
             int pressureLine = (int)AppConfig.PressureLine;
             bool showVolumes = AppConfig.ShowVolumes;
@@ -160,10 +161,10 @@ namespace GetShares
             Console.WriteLine("");
 
             // Create Markdown Table            
-            Console.Write("| Date  | Pressure # | Pressure Change |");
+            Console.Write("| Date       | Pressure # | +/- |");
             if (showVolumes)
             {
-                Console.Write(" Volume | Short Volume | Potential Short % (stab in the dark) |");
+                Console.Write(" Volume          | Short Volume    | Potential Short % |");
             }
             Console.WriteLine("");
 
@@ -229,16 +230,16 @@ namespace GetShares
                         // At this point, the squeeze factor is just a number. It should not be mentally coupled with the squeeze percent since we don't
                         // know what that true number is. But what we DO know is that at this level the Hedge funds should be feeling quite a bit of 
                         // pressure, which could drive the price up. And that's what we're trying to find. Potential PRESSURE to facilitate a squeeze.
-                        Console.Write($"| {curr.ToString("yyyy-MM-dd")} | {(squeezeFactor * 100m):0.0} | {incdec} ");
+                        Console.Write($"| {curr:yyyy-MM-dd} | {(squeezeFactor * 100m),10:0.0} |  {incdec}  ");
                         if (showVolumes)
                         {
-                            Console.Write($"| {data.TotalVolume.ToString("###,###,###,##0")} | {data.ShortVolume.ToString("###,###,###,##0")} | {shortPercent * 100:0.0000} % |");
+                            Console.Write($"| {data.TotalVolume.ToString("###,###,###,##0"),15} | {data.ShortVolume.ToString("###,###,###,##0"),15} | {shortPercent * 100,15:0.0000,} % |");
                         }
                         Console.WriteLine("");
                     }
                     else
                     {
-                        Console.WriteLine($"| {curr.Date.ToString("yyyy-MM-dd")} | has no data.");
+                        Console.WriteLine($"| {curr.Date:yyyy-MM-dd} | has no data.");
                     }
                 }
             }
