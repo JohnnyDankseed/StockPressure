@@ -20,8 +20,9 @@ namespace GetShares
         {
             Console.SetWindowSize(100, Console.WindowHeight);
             string symbol = "GME";
-            int pressureLine = (int)AppConfig.PressureLine;
-            bool showVolumes = AppConfig.ShowVolumes;
+            int pressureLine = 70;
+            bool showVolumes = false;
+            string prevOrCurrent = "P";
 
             if (AppConfig.ApiKey == null || AppConfig.ApiHost == null)
             {
@@ -38,14 +39,8 @@ namespace GetShares
 
             while (true)
             {
-                Console.Write($"Symbol ({symbol}): ");
-                symbol = GetString(symbol);
+                GetConfiguration(ref symbol, ref pressureLine, ref showVolumes, ref prevOrCurrent);
 
-                Console.Write($"At what percent do you think the short-ers will be stuck? ({pressureLine}) : ");
-                pressureLine = int.Parse(GetString(pressureLine.ToString()));
-
-                Console.Write($"Show underlying volumes? ({showVolumes}) : ");
-                showVolumes = bool.Parse(GetString(showVolumes.ToString()));
                 Console.WriteLine("------------------------------------------------------------------------------");
 
                 YahooFinanceStatistics yfData = GetYahooFinanceForSymbol(symbol);
@@ -56,39 +51,24 @@ namespace GetShares
                     continue;
                 }
 
-                Int64 sharesHeldByInsiders = (Int64)(
-                    yfData.defaultKeyStatistics.sharesOutstanding.value *
-                    yfData.defaultKeyStatistics.heldPercentInsiders.value
-                );
+                DateTime DateToUse = yfData.defaultKeyStatistics.sharesShortPreviousMonthDate.value;
+                Int64 InitialSharesShort = yfData.defaultKeyStatistics.sharesShortPriorMonth.value;
 
+                if (prevOrCurrent == "C")
+                {
+                    DateToUse = yfData.defaultKeyStatistics.dateShortInterest.value;
+                    InitialSharesShort = yfData.defaultKeyStatistics.sharesShort.value;
+                }
 
-                // I MAY remove this chunk of expository once I know the calculations are correct and just let the numbers be the numbers.
-                // I kinda like this section.
-                // ------------------------------------------------------------------------------------------------------------------------
-                Console.WriteLine("");
-                Console.WriteLine($"According to Yahoo Finance, on " +
-                    $"{yfData.defaultKeyStatistics.sharesShortPreviousMonthDate.value:yyyy-MM-dd} " +
-                    $"the outstanding shorts for {symbol} were approx. " +
-                    $"***{yfData.defaultKeyStatistics.sharesShortPriorMonth.value:###,###,###,##0}***.");
-                Console.WriteLine("");
-                Console.WriteLine($"It also gives the total outstanding shares for ***{symbol}*** to be approx. " +
-                    $"***{yfData.defaultKeyStatistics.sharesOutstanding.value:###,###,###,##0}*** ");
-                Console.WriteLine($"and says that " +
-                    $"***{yfData.defaultKeyStatistics.heldPercentInsiders.value * 100.0m:0.000}%*** " +
-                    $"are held by insiders, so I'll take ***{sharesHeldByInsiders:###,###,###,##0}*** shares out, ");
-                Console.WriteLine($"making the total available shares for purchase right around " +
-                    $"***{yfData.defaultKeyStatistics.sharesOutstanding.value - sharesHeldByInsiders:###,###,###,##0}***.");
-                Console.WriteLine("This is the number I'll use to determine shorted percent... the percent of ");
-                Console.WriteLine("shares available in the 'open' market.");
-                Console.WriteLine("");
+                ShowStatBlock(symbol, yfData, DateToUse, InitialSharesShort);
 
                 if (yfData.defaultKeyStatistics.sharesOutstanding.value > 0)
                 {
                     GetShortDataSinceDate(
-                        yfData.defaultKeyStatistics.sharesShortPriorMonth.value,
-                        yfData.defaultKeyStatistics.sharesShortPreviousMonthDate.value,
+                        InitialSharesShort,
+                        DateToUse,
                         symbol,
-                        yfData.defaultKeyStatistics.sharesOutstanding.value - sharesHeldByInsiders,
+                        yfData.defaultKeyStatistics.floatShares.value,
                         pressureLine,
                         showVolumes
                     );
@@ -96,6 +76,48 @@ namespace GetShares
 
                 Console.WriteLine("------------------------------------------------------------------------------");
             }
+        }
+
+        private static void GetConfiguration(ref string symbol, ref int pressureLine, ref bool showVolumes, ref string prevOrCurrent)
+        {
+            Console.Write($"Symbol ({symbol}): ");
+            symbol = GetString(symbol);
+
+            Console.Write($"At what percent do you think the short-ers will be stuck? ({pressureLine}) : ");
+            pressureLine = int.Parse(GetString(pressureLine.ToString()));
+
+            Console.Write($"Show underlying volumes? ({showVolumes}) : ");
+            showVolumes = bool.Parse(GetString(showVolumes.ToString()));
+
+            Console.Write($"Use [P]revious month, or [C]urrent month? ({prevOrCurrent}) : ");
+            prevOrCurrent = GetString(prevOrCurrent);
+        }
+
+        private static void ShowStatBlock(string symbol, YahooFinanceStatistics yfData, DateTime DateToUse, Int64 InitialSharesShort)
+        {
+            Int64 sharesHeldByInsiders = (Int64)(
+                yfData.defaultKeyStatistics.sharesOutstanding.value *
+                yfData.defaultKeyStatistics.heldPercentInsiders.value
+            );
+
+            decimal calcFloat = yfData.defaultKeyStatistics.sharesOutstanding.value - sharesHeldByInsiders;
+            decimal calcShortRatio = (decimal)InitialSharesShort / calcFloat;
+
+            Console.WriteLine("");
+            Console.WriteLine($"According to Yahoo Finance, on {DateToUse:yyyy-MM-dd} " +
+                $"the outstanding shorts for {symbol} were ***{InitialSharesShort:###,###,###,##0}***, or " +
+                $"{calcShortRatio * 100m:0.0000}% of float.");
+            Console.WriteLine("");
+            Console.WriteLine($"Total outstanding shares : ***{yfData.defaultKeyStatistics.sharesOutstanding.value,15:###,###,###,##0}*** ");
+            Console.WriteLine($"Held by insiders         : ***{yfData.defaultKeyStatistics.heldPercentInsiders.value * 100.0m,14:0.000}%*** ( approx. ***{sharesHeldByInsiders:###,###,###,##0}*** )");
+            Console.WriteLine($"Calculated Float         : ***{calcFloat,15:###,###,###,##0}***");
+            Console.WriteLine($"Reported Float           : ***{yfData.defaultKeyStatistics.floatShares.value,15:###,###,###,##0}***");
+            Console.WriteLine($"Calculated Short of Float: ***{yfData.defaultKeyStatistics.shortPercentOfFloat.value * (yfData.defaultKeyStatistics.sharesOutstanding.value - sharesHeldByInsiders),15:###,###,###,##0}***");
+            Console.WriteLine($"Reported Short of Float  : ***{yfData.defaultKeyStatistics.shortPercentOfFloat.value * 100m,14:0.0000}%*** " +
+                $"( approx. ***{yfData.defaultKeyStatistics.shortPercentOfFloat.value * yfData.defaultKeyStatistics.floatShares.value:###,###,###,##0}*** )");
+            Console.WriteLine($"Reported Short Ratio     : ***{yfData.defaultKeyStatistics.shortRatio.value * 100m,14}%***");
+            Console.WriteLine($"Calculated Short Ratio   : ***{calcShortRatio * 100m,14:0.00}%***");
+            Console.WriteLine("");
         }
 
         private static YahooFinanceStatistics GetYahooFinanceForSymbol(string symbol)

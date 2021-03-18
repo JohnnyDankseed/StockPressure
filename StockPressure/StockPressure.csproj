@@ -55,7 +55,6 @@
     <Compile Include="YahooDate.cs" />
     <Compile Include="YahooInteger.cs" />
     <Compile Include="YahooNumber.cs" />
-    <Compile Include="YahooQuoteType.cs" />
     <Compile Include="YahooQuoteKeyStatistics.cs" />
     <Compile Include="YFCache.cs" />
   </ItemGroup>

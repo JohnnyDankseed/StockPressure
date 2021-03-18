@@ -7,9 +7,6 @@ namespace GetShares
     public static class AppConfig
     {
         public static bool CheckForToday { get { return bool.Parse(ConfigurationManager.AppSettings["checkForToday"]); } }
-        public static bool ShowVolumes { get { return bool.Parse(ConfigurationManager.AppSettings["showVolumes"]); } }
-
-        public static decimal PressureLine { get { return decimal.Parse(ConfigurationManager.AppSettings["pressureLine"]); } }
 
         private static string _apiKey = ConfigurationManager.AppSettings["apiKey"];
         public static string ApiKey
