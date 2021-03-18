@@ -100,8 +100,8 @@ namespace GetShares
         private static YahooFinanceStatistics GetYahooFinanceForSymbol(string symbol)
         {
             YahooFinanceStatistics obj = null;
-            string apiKey = ConfigurationManager.AppSettings["ApiKey"];
-            string apiHost = ConfigurationManager.AppSettings["ApiHost"];
+            string apiKey = AppConfig.ApiKey;
+            string apiHost = AppConfig.ApiHost;
             if (YFCache.Has(symbol))
             {
                 obj = YFCache.Load(symbol);

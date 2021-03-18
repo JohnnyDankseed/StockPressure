@@ -4,29 +4,33 @@ using System.Text;
 
 namespace GetShares
 {
-    public class AppConfig
+    public static class AppConfig
     {
         public static bool CheckForToday { get { return bool.Parse(ConfigurationManager.AppSettings["checkForToday"]); } }
         public static bool ShowVolumes { get { return bool.Parse(ConfigurationManager.AppSettings["showVolumes"]); } }
 
         public static decimal PressureLine { get { return decimal.Parse(ConfigurationManager.AppSettings["pressureLine"]); } }
 
+        private static string _apiKey = ConfigurationManager.AppSettings["apiKey"];
         public static string ApiKey
         {
-            get { return ConfigurationManager.AppSettings["apiKey"]; }
+            get { return _apiKey; }
             set
             {
+                _apiKey = value;
                 Configuration config = ConfigurationManager.OpenExeConfiguration(Assembly.GetEntryAssembly().Location);
                 config.AppSettings.Settings.Add("ApiKey", value);
                 config.Save();
             }
         }
 
+        private static string _apiHost = ConfigurationManager.AppSettings["apiHost"];
         public static string ApiHost
         {
-            get { return ConfigurationManager.AppSettings["apiHost"]; }
+            get { return _apiHost; }
             set
             {
+                _apiHost = value;
                 Configuration config = ConfigurationManager.OpenExeConfiguration(Assembly.GetEntryAssembly().Location);
                 config.AppSettings.Settings.Add("ApiHost", value);
                 config.Save();
